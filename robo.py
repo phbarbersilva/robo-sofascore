@@ -2,18 +2,18 @@ import requests
 import asyncio
 from telegram import Bot
 
-# =======================
-# 🔴 CONFIGURAÇÃO TELEGRAM
-# =======================
-TELEGRAM_TOKEN = "8774968598:AAEZ2UpYCSXK9L25TrSvqlIgb2T0I6KSiYs"
+# =========================
+# 🔑 TELEGRAM
+# =========================
+TOKEN = "8774968598:AAEZ2UpYCSXK9L25TrSvqlIgb2T0I6KSiYs"
 CHAT_ID = "7156481953"
 
-bot = Bot(token=TELEGRAM_TOKEN)
+bot = Bot(token=TOKEN)
 
 
-# =======================
+# =========================
 # 📡 PEGAR JOGOS AO VIVO
-# =======================
+# =========================
 def pegar_jogos():
     url = "https://api.sofascore.com/api/v1/sport/football/events/live"
     r = requests.get(url)
@@ -21,105 +21,104 @@ def pegar_jogos():
     return data.get("events", [])
 
 
-# =======================
-# 📊 PEGAR ESTATÍSTICAS
-# =======================
+# =========================
+# 📊 ESTATÍSTICAS
+# =========================
 def pegar_stats(event_id):
     url = f"https://api.sofascore.com/api/v1/event/{event_id}/statistics"
     r = requests.get(url)
-    data = r.json()
+
+    try:
+        data = r.json()
+    except:
+        return {}
 
     stats = {}
 
     try:
-        for group in data["statistics"]:
-            for item in group["groups"]:
-                stats[item["name"]] = item["homeValue"], item["awayValue"]
+        for group in data.get("statistics", []):
+            for item in group.get("groups", []):
+                name = item.get("name")
+                home = item.get("homeValue", 0)
+                away = item.get("awayValue", 0)
+                stats[name] = (home, away)
     except:
         pass
 
     return stats
 
 
-# =======================
-# 🔥 ANALISADOR DE GREEN
-# =======================
+# =========================
+# 🔥 ANALISAR JOGO (FILTRO REALISTA)
+# =========================
 def analisar_jogo(jogo):
-    event_id = jogo["id"]
+    try:
+        event_id = jogo.get("id")
 
-    home = jogo["homeTeam"]["name"]
-    away = jogo["awayTeam"]["name"]
+        home = jogo["homeTeam"]["name"]
+        away = jogo["awayTeam"]["name"]
 
-    stats = pegar_stats(event_id)
+        stats = pegar_stats(event_id)
 
-    ataques = stats.get("Attacks", (0, 0))
-    perigosos = stats.get("Dangerous attacks", (0, 0))
-    chutes = stats.get("Shots on target", (0, 0))
+        ataques = stats.get("Attacks", (0, 0))
+        perigosos = stats.get("Dangerous attacks", (0, 0))
+        chutes = stats.get("Shots on target", (0, 0))
 
-    total_attacks = ataques[0] + ataques[1]
-    total_danger = perigosos[0] + perigosos[1]
-    total_shots = chutes[0] + chutes[1]
+        total_att = ataques[0] + ataques[1]
+        total_dan = perigosos[0] + perigosos[1]
+        total_ch = chutes[0] + chutes[1]
 
-    greens = []
+        sinais = []
 
-    # 🔥 PRESSÃO DE JOGO
-    if total_attacks >= 35:
-        greens.append("🔥 Pressão Alta")
+        if total_att >= 20:
+            sinais.append("🔥 Pressão boa")
 
-    # ⚡ ATAQUES PERIGOSOS
-    if total_danger >= 18:
-        greens.append("⚡ Ataques Perigosos")
+        if total_dan >= 10:
+            sinais.append("⚡ Ataques perigosos")
 
-    # 🎯 FINALIZAÇÕES
-    if total_shots >= 6:
-        greens.append("🎯 Finalizações Ativas")
+        if total_ch >= 3:
+            sinais.append("🎯 Finalizações no alvo")
 
-    # 🔥 REGRA FINAL (SÓ ENVIA SE FOR BOM MESMO)
-    if len(greens) >= 2:
-        return f"""
-🚨 GREEN DETECTADO 🚨
+        if len(sinais) >= 2:
+            return f"""
+🚨 POSSÍVEL GREEN 🚨
 
 ⚽ {home} vs {away}
 
 📊 Indicadores:
-- {', '.join(greens)}
+- {', '.join(sinais)}
 
 ━━━━━━━━━━━━━━━
 """
 
-    return None
+    except:
+        return None4
 
 
-# =======================
+# =========================
 # 📲 ENVIAR TELEGRAM
-# =======================
+# =========================
 async def enviar(msg):
     await bot.send_message(chat_id=CHAT_ID, text=msg)
 
 
-# =======================
-# 🚀 MAIN DO ROBÔ
-# =======================
+# =========================
+# 🚀 MAIN
+# =========================
 async def main():
     jogos = pegar_jogos()
 
     sinais = []
 
-    for jogo in jogos[:25]:
-        try:
-            sinal = analisar_jogo(jogo)
-            if sinal:
-                sinais.append(sinal)
-        except:
-            continue
+    for jogo in jogos[:20]:
+        resultado = analisar_jogo(jogo)
+        if resultado:
+            sinais.append(resultado)
 
     if sinais:
-        await enviar("🚀 ROBÔ GREEN ATIVO 🚀\n\n" + "\n".join(sinais))
+        await enviar("🚀 ROBÔ ATIVO 🚀\n\n" + "\n".join(sinais))
     else:
-        await enviar("❌ Nenhum GREEN encontrado no momento.")
+        await enviar("❌ Nenhum green no momento.")
 
 
-# =======================
-# ▶️ EXECUTAR
-# =======================
 asyncio.run(main())
