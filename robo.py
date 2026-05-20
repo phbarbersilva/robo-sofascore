@@ -1,17 +1,23 @@
 import requests
-from telegram import Bot
 
-# =========================
-# 🔑 TELEGRAM
-# =========================
 TOKEN = "8774968598:AAEZ2UpYCSXK9L25TrSvqlIgb2T0I6KSiYs"
 CHAT_ID = "7156481953"
 
-bot = Bot(token=TOKEN)
+
+# =========================
+# TELEGRAM VIA HTTP (SEM LIB)
+# =========================
+def enviar(msg):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": msg
+    }
+    requests.post(url, data=payload, timeout=20)
 
 
 # =========================
-# 📡 JOGOS AO VIVO
+# SOFASCORE JOGOS
 # =========================
 def pegar_jogos():
     url = "https://api.sofascore.com/api/v1/sport/football/events/live"
@@ -20,7 +26,7 @@ def pegar_jogos():
 
 
 # =========================
-# 📊 STATS
+# STATS
 # =========================
 def pegar_stats(event_id):
     url = f"https://api.sofascore.com/api/v1/event/{event_id}/statistics"
@@ -47,7 +53,7 @@ def pegar_stats(event_id):
 
 
 # =========================
-# 🔥 ANALISE SIMPLES (ESTÁVEL)
+# ANALISE SIMPLES
 # =========================
 def analisar_jogo(jogo):
     try:
@@ -60,11 +66,9 @@ def analisar_jogo(jogo):
 
         ataques = stats.get("Attacks", (0, 0))
         perigosos = stats.get("Dangerous attacks", (0, 0))
-        chutes = stats.get("Shots on target", (0, 0))
 
         total_att = ataques[0] + ataques[1]
         total_dan = perigosos[0] + perigosos[1]
-        total_ch = chutes[0] + chutes[1]
 
         if total_att >= 20 and total_dan >= 10:
             return f"""
@@ -72,27 +76,17 @@ def analisar_jogo(jogo):
 
 ⚽ {home} vs {away}
 
-📊 Pressão:
-- Attacks: {total_att}
-- Dangerous: {total_dan}
-- Shots: {total_ch}
+📊 Attacks: {total_att}
+📊 Dangerous: {total_dan}
 
 ━━━━━━━━━━━━━━
 """
-
     except:
         return None
 
 
 # =========================
-# 📲 ENVIAR
-# =========================
-def enviar(msg):
-    bot.send_message(chat_id=CHAT_ID, text=msg)
-
-
-# =========================
-# 🚀 MAIN (SEM ASYNC)
+# MAIN
 # =========================
 def main():
     jogos = pegar_jogos()
