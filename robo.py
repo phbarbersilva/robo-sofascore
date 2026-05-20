@@ -1,5 +1,4 @@
 import requests
-import asyncio
 from telegram import Bot
 
 # =========================
@@ -12,21 +11,20 @@ bot = Bot(token=TOKEN)
 
 
 # =========================
-# 📡 PEGAR JOGOS AO VIVO
+# 📡 JOGOS AO VIVO
 # =========================
 def pegar_jogos():
     url = "https://api.sofascore.com/api/v1/sport/football/events/live"
-    r = requests.get(url)
-    data = r.json()
-    return data.get("events", [])
+    r = requests.get(url, timeout=20)
+    return r.json().get("events", [])
 
 
 # =========================
-# 📊 ESTATÍSTICAS
+# 📊 STATS
 # =========================
 def pegar_stats(event_id):
     url = f"https://api.sofascore.com/api/v1/event/{event_id}/statistics"
-    r = requests.get(url)
+    r = requests.get(url, timeout=20)
 
     try:
         data = r.json()
@@ -49,11 +47,11 @@ def pegar_stats(event_id):
 
 
 # =========================
-# 🔥 ANALISAR JOGO (FILTRO REALISTA)
+# 🔥 ANALISE SIMPLES (ESTÁVEL)
 # =========================
 def analisar_jogo(jogo):
     try:
-        event_id = jogo.get("id")
+        event_id = jogo["id"]
 
         home = jogo["homeTeam"]["name"]
         away = jogo["awayTeam"]["name"]
@@ -68,57 +66,49 @@ def analisar_jogo(jogo):
         total_dan = perigosos[0] + perigosos[1]
         total_ch = chutes[0] + chutes[1]
 
-        sinais = []
-
-        if total_att >= 20:
-            sinais.append("🔥 Pressão boa")
-
-        if total_dan >= 10:
-            sinais.append("⚡ Ataques perigosos")
-
-        if total_ch >= 3:
-            sinais.append("🎯 Finalizações no alvo")
-
-        if len(sinais) >= 2:
+        if total_att >= 20 and total_dan >= 10:
             return f"""
 🚨 POSSÍVEL GREEN 🚨
 
 ⚽ {home} vs {away}
 
-📊 Indicadores:
-- {', '.join(sinais)}
+📊 Pressão:
+- Attacks: {total_att}
+- Dangerous: {total_dan}
+- Shots: {total_ch}
 
-━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━
 """
 
     except:
-        return None4
+        return None
 
 
 # =========================
-# 📲 ENVIAR TELEGRAM
+# 📲 ENVIAR
 # =========================
-async def enviar(msg):
-    await bot.send_message(chat_id=CHAT_ID, text=msg)
+def enviar(msg):
+    bot.send_message(chat_id=CHAT_ID, text=msg)
 
 
 # =========================
-# 🚀 MAIN
+# 🚀 MAIN (SEM ASYNC)
 # =========================
-async def main():
+def main():
     jogos = pegar_jogos()
 
     sinais = []
 
     for jogo in jogos[:20]:
-        resultado = analisar_jogo(jogo)
-        if resultado:
-            sinais.append(resultado)
+        res = analisar_jogo(jogo)
+        if res:
+            sinais.append(res)
 
     if sinais:
-        await enviar("🚀 ROBÔ ATIVO 🚀\n\n" + "\n".join(sinais))
+        enviar("🚀 ROBÔ ATIVO 🚀\n\n" + "\n".join(sinais))
     else:
-        await enviar("❌ Nenhum green no momento.")
+        enviar("❌ Nenhum green no momento.")
 
 
-asyncio.run(main())
+if _name_ == "_main_":
+    main()
